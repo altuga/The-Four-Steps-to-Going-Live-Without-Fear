@@ -1,0 +1,32 @@
+FROM openjdk:21-jdk-slim
+
+WORKDIR /app
+COPY target/aks-springboot-1.0-SNAPSHOT.jar app.jar
+
+# Expose ports
+EXPOSE 8080 9999
+
+# Simple entrypoint with JMX for VisualVM
+CMD ["java", \
+     "-Dcom.sun.management.jmxremote", \
+     "-Dcom.sun.management.jmxremote.port=9999", \
+     "-Dcom.sun.management.jmxremote.rmi.port=9999", \
+     "-Dcom.sun.management.jmxremote.authenticate=false", \
+     "-Dcom.sun.management.jmxremote.ssl=false", \
+     "-Dcom.sun.management.jmxremote.local.only=false", \
+     "-Djava.rmi.server.hostname=127.0.0.1", \
+     "-Dcom.sun.management.jmxremote.registry.ssl=false", \
+     "-Xmx512m", \
+     "-XX:+UseG1GC", \
+     "-jar", "app.jar"]
+
+# CPU Limiting Instructions:
+# You cannot set CPU limits in Dockerfile - they must be set at runtime
+# 
+# To run with 500 millicores (0.5 CPU):
+# docker run --cpus=0.5 -p 8080:8080 -p 9999:9999 spring-visualvm:latest
+# 
+# Or with explicit period/quota:
+# docker run --cpu-period=100000 --cpu-quota=50000 -p 8080:8080 -p 9999:9999 spring-visualvm:latest
+#
+# Or use docker-compose.yml with resource limits defined

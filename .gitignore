@@ -1,16 +1,19 @@
-target/classes/application.properties
-target/classes/examples/azure/aks/springboot/Application.class
-target/classes/examples/azure/aks/springboot/Controller.class
-target/classes/examples/azure/aks/springboot/Factorization.class
-target/classes/examples/azure/aks/springboot/PrimeFactor.class
-target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst
-target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst
-target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/createdFiles.lst
-target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/inputFiles.lst
-target/surefire-reports/examples.azure.aks.springboot.TestFactorization.txt
-target/surefire-reports/TEST-examples.azure.aks.springboot.TestFactorization.xml
-target/test-classes/examples/azure/aks/springboot/TestFactorization.class
-target
+# Maven build output
+target/
+
+# Application Insights logs
+applicationinsights.log
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test output
 small-image-test/app.jar
 small-image-test/Dockerfile.jlink
 small-image-test/Dockerfile.optimizeddistroless
@@ -19,4 +22,3 @@ small-image-test/Hello.class
 small-image-test/Hello.java
 small-image-test/myapp.jar
 test-ergonomics/Hello.class
-applicationinsights.log

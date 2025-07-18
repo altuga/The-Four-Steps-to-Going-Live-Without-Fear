@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  spring-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.visualvm
+    ports:
+      - "8080:8080"
+      - "9999:9999"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'        # 500 millicores
+          memory: 1G
+        reservations:
+          cpus: '0.1'        # 100 millicores minimum
+          memory: 256M
+    environment:
+      - JAVA_OPTS=-Xmx512m -XX:+UseG1GC
+    container_name: spring-cpu-limited

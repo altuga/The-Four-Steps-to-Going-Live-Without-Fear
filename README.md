@@ -1,8 +1,58 @@
-# aks-jvm-benchmark
+# Little's Law Demonstration - Local JVM Benchmark
 
 [![Java CI with Maven](https://github.com/brunoborges/aks-jvm-benchmark/actions/workflows/maven.yml/badge.svg)](https://github.com/brunoborges/aks-jvm-benchmark/actions/workflows/maven.yml)
 
-This project is used as an exercise for evaluating different deployment styles (horizontal scaling versus vertical scaling) of JVM workloads on Kubernetes.
+This project demonstrates **Little's Law** (L = λ × W) through horizontal scaling using local JVM instances. Perfect for learning queueing theory and performance concepts without cloud complexity or costs.
+
+## 🎯 Little's Law Demonstration
+
+**Little's Law**: `L = λ × W`
+- **L**: Average number of requests in the system
+- **λ**: Arrival rate (throughput - requests/second)  
+- **W**: Average response time (seconds)
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Java 17+
+- Maven (or use included `./mvnw`)
+- `wrk` load testing tool: `brew install wrk`
+
+### Run the Demonstration
+```bash
+# Build the application
+./mvnw clean package
+
+# Run the complete Little's Law demonstration
+cd local-demo
+./littles-law-demo.sh
+```
+
+## 🏠 Local Demonstration Features
+
+### ✅ **What You'll See**
+1. **Phase 1**: Single "pod" performance limits
+2. **Phase 2**: Horizontal scaling benefits  
+3. **Phase 3**: Optimal throughput with multiple instances
+
+### ✅ **Benefits**
+- **Free** - No cloud costs
+- **Fast** - Immediate setup
+- **Educational** - Clear demonstration of concepts
+- **Repeatable** - Run as many times as needed
+
+## 📁 Project Structure
+
+```
+├── local-demo/          # All demonstration scripts
+│   ├── littles-law-demo.sh      # Complete automated demo
+│   ├── simple-littles-law.sh    # Quick demo
+│   ├── monitor.sh               # Real-time dashboard
+│   └── cleanup.sh               # Stop all processes
+├── src/                 # Java Spring Boot application
+├── pom.xml             # Maven configuration
+└── README.md           # This file
+```
 
 
 ## Generate HdrHistogram chart
