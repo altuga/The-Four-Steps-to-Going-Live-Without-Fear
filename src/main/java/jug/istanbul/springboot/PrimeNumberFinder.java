@@ -1,4 +1,4 @@
-package examples.azure.aks.springboot;
+package jug.istanbul.springboot;
 
 import java.util.ArrayList;
 import java.util.Collections;

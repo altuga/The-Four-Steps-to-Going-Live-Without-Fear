@@ -1,4 +1,4 @@
-package examples.azure.aks.springboot;
+package jug.istanbul.springboot;
 
 import java.math.BigInteger;
 import java.util.ArrayList;

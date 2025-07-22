@@ -1,4 +1,4 @@
-package examples.azure.aks.springboot;
+package jug.istanbul.springboot;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

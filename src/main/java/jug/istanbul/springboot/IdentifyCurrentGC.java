@@ -1,4 +1,4 @@
-package examples.azure.aks.springboot;
+package jug.istanbul.springboot;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;

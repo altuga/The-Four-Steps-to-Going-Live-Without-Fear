@@ -1,4 +1,4 @@
-package examples.azure.aks.springboot;
+package jug.istanbul.springboot;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;

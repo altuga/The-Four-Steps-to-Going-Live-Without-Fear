@@ -1,4 +1,4 @@
-package examples.azure.aks.springboot;
+package jug.istanbul.springboot;
 
 public class AvailableProcessors {
     // method main showing available processors
