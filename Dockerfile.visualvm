@@ -1,4 +1,4 @@
-FROM openjdk:21-jdk-slim
+FROM eclipse-temurin:21-jdk
 
 WORKDIR /app
 COPY target/five-steps-1.0-SNAPSHOT.jar app.jar
@@ -7,6 +7,7 @@ COPY target/five-steps-1.0-SNAPSHOT.jar app.jar
 EXPOSE 8080 9999
 
 # Simple entrypoint with JMX for VisualVM
+# Note: GC and heap settings are controlled by run-spring-docker.sh script
 CMD ["java", \
      "-Dcom.sun.management.jmxremote", \
      "-Dcom.sun.management.jmxremote.port=9999", \
@@ -16,8 +17,6 @@ CMD ["java", \
      "-Dcom.sun.management.jmxremote.local.only=false", \
      "-Djava.rmi.server.hostname=127.0.0.1", \
      "-Dcom.sun.management.jmxremote.registry.ssl=false", \
-     "-Xmx512m", \
-     "-XX:+UseG1GC", \
      "-jar", "app.jar"]
 
 # CPU Limiting Instructions:

@@ -524,97 +524,10 @@ public class RESTController {
     }
 
     @GetMapping("/memoryStress")
-    public Map<String, Object> memoryStress(@RequestParam(defaultValue = "10") int durationSeconds, @RequestParam(defaultValue = "1000") int objectSizeKB) {
-        var startTime = Instant.now();
-        var results = new TreeMap<String, Object>();
-        results.put("durationSeconds", durationSeconds);
-        results.put("objectSizeKB", objectSizeKB);
-        results.put("availableProcessors", Runtime.getRuntime().availableProcessors());
-
-        // Get GC info before
-        var gcBeans = ManagementFactory.getGarbageCollectorMXBeans();
-        Map<String, Long> gcCountsBefore = new HashMap<>();
-        Map<String, Long> gcTimesBefore = new HashMap<>();
-        for (var gcBean : gcBeans) {
-            gcCountsBefore.put(gcBean.getName(), gcBean.getCollectionCount());
-            gcTimesBefore.put(gcBean.getName(), gcBean.getCollectionTime());
-        }
-
-        var runtime = Runtime.getRuntime();
-        long memoryBefore = runtime.totalMemory() - runtime.freeMemory();
-
-        try {
-            // Create lots of objects to trigger GC
-            var objectList = new ArrayList<byte[]>();
-            var endTime = startTime.plusSeconds(durationSeconds);
-            long totalAllocations = 0;
-
-            while (Instant.now().isBefore(endTime)) {
-                // Create large objects that will stress the heap
-                for (int i = 0; i < 100; i++) {
-                    objectList.add(new byte[objectSizeKB * 1024]);
-                    totalAllocations++;
-
-                    // Occasionally clear some objects to create churn
-                    if (objectList.size() > 1000) {
-                        objectList.subList(0, 500).clear();
-                    }
-                }
-
-                // Create additional memory pressure with temporary objects
-                for (int i = 0; i < 500; i++) {
-                    var tempString = "temporary-object-" + i + "-" + System.nanoTime();
-                    // Create temporary arrays to add memory pressure
-                    @SuppressWarnings("unused") int len = tempString.split("-").length; // Just use the result
-                }
-            }
-
-            results.put("totalAllocations", totalAllocations);
-            results.put("finalListSize", objectList.size());
-
-        } catch (OutOfMemoryError e) {
-            results.put("error", "OutOfMemoryError: " + e.getMessage());
-        }
-
-        // Get GC info after
-        Map<String, Long> gcCountsAfter = new HashMap<>();
-        Map<String, Long> gcTimesAfter = new HashMap<>();
-        for (var gcBean : gcBeans) {
-            gcCountsAfter.put(gcBean.getName(), gcBean.getCollectionCount());
-            gcTimesAfter.put(gcBean.getName(), gcBean.getCollectionTime());
-        }
-
-        // Calculate GC differences
-        Map<String, Object> gcStats = new HashMap<>();
-        for (var gcBean : gcBeans) {
-            String name = gcBean.getName();
-            long countDiff = gcCountsAfter.get(name) - gcCountsBefore.get(name);
-            long timeDiff = gcTimesAfter.get(name) - gcTimesBefore.get(name);
-
-            Map<String, Object> gcInfo = new HashMap<>();
-            gcInfo.put("collections", countDiff);
-            gcInfo.put("timeMs", timeDiff);
-            gcStats.put(name, gcInfo);
-        }
-
-        var endTime = Instant.now();
-        long memoryAfter = runtime.totalMemory() - runtime.freeMemory();
-
-        results.put("gcStats", gcStats);
-        results.put("memoryUsedBeforeMB", memoryBefore / 1024 / 1024);
-        results.put("memoryUsedAfterMB", memoryAfter / 1024 / 1024);
-        results.put("actualDurationMs", Duration.between(startTime, endTime).toMillis());
-
-        return results;
-    }
-
-    @GetMapping("/gcStress")
-    public Map<String, Object> gcStress(@RequestParam(defaultValue = "10000") int iterations, @RequestParam(defaultValue = "1000") int arraySize, @RequestParam(defaultValue = "true") boolean includeStrings, @RequestParam(defaultValue = "true") boolean includeCollections, @RequestParam(defaultValue = "true") boolean includeLargeObjects) {
-
+    public Map<String, Object> memoryStress(@RequestParam(defaultValue = "5000") int iterations) {
         long startTime = System.currentTimeMillis();
-        long totalAllocated = 0;
-        List<Object> longLivedObjects = new ArrayList<>();
-
+        var random = ThreadLocalRandom.current();
+        
         // Get GC info before
         var gcBeans = ManagementFactory.getGarbageCollectorMXBeans();
         Map<String, Long> gcCountsBefore = new HashMap<>();
@@ -626,73 +539,50 @@ public class RESTController {
 
         var runtime = Runtime.getRuntime();
         long memoryBefore = runtime.totalMemory() - runtime.freeMemory();
-
-        // Memory allocation patterns that stress different GC scenarios
+        
+        // Keep some objects alive to create old generation pressure
+        List<Object> survivors = new ArrayList<>();
+        long totalObjects = 0;
+        
+        // Simple realistic web app memory allocation patterns
         for (int i = 0; i < iterations; i++) {
-
-            // 1. Short-lived array allocation (Eden space pressure)
-            int[] array = new int[arraySize];
-            for (int j = 0; j < arraySize; j++) {
-                array[j] = j * i;
+            
+            // 1. Typical web request data (JSON-like objects)
+            Map<String, Object> requestData = new HashMap<>();
+            requestData.put("userId", random.nextInt(100000));
+            requestData.put("sessionId", "sess_" + random.nextLong());
+            requestData.put("timestamp", System.currentTimeMillis());
+            requestData.put("ip", "192.168." + random.nextInt(255) + "." + random.nextInt(255));
+            
+            // 2. Response data simulation
+            List<String> items = new ArrayList<>();
+            for (int j = 0; j < random.nextInt(20) + 5; j++) {
+                items.add("item_" + j + "_" + random.nextInt(1000));
             }
-            totalAllocated += arraySize * 4;
-
-            // 2. String operations (realistic web app pattern)
-            if (includeStrings && i % 10 == 0) {
-                StringBuilder sb = new StringBuilder();
-                for (int k = 0; k < 50; k++) {
-                    sb.append("User_").append(i).append("_Request_").append(k).append("_Data");
-                }
-                String result = sb.toString();
-                totalAllocated += result.length() * 2; // 2 bytes per char in UTF-16
-
-                // Some strings survive longer (old generation pressure)
-                if (i % 100 == 0) {
-                    longLivedObjects.add(result);
-                }
-            }
-
-            // 3. Collection operations (typical business logic)
-            if (includeCollections && i % 20 == 0) {
-                Map<String, Object> customerData = new HashMap<>();
-                customerData.put("id", i);
-                customerData.put("name", "Customer_" + i);
-                customerData.put("email", "customer" + i + "@example.com");
-
-                List<Map<String, Object>> orders = new ArrayList<>();
-                for (int orderIdx = 0; orderIdx < 5; orderIdx++) {
-                    Map<String, Object> order = new HashMap<>();
-                    order.put("orderId", i * 1000 + orderIdx);
-                    order.put("amount", Math.random() * 1000);
-                    order.put("items", createOrderItems(orderIdx + 1));
-                    orders.add(order);
-                }
-                customerData.put("orders", orders);
-
-                totalAllocated += estimateObjectSize(customerData);
-
-                // Keep some customers in memory (survivor space testing)
-                if (i % 500 == 0) {
-                    longLivedObjects.add(customerData);
-                }
-            }
-
-            // 4. Large object allocation (LOH pressure)
-            if (includeLargeObjects && i % 1000 == 0) {
-                byte[] largeArray = new byte[1024 * 1024]; // 1MB allocation
-                for (int b = 0; b < largeArray.length; b += 1024) {
-                    largeArray[b] = (byte) (i % 256);
-                }
-                totalAllocated += largeArray.length;
-            }
-
-            // 5. Nested object creation (object graph complexity)
+            requestData.put("items", items);
+            
+            // 3. Create some temporary processing data
+            StringBuilder logMessage = new StringBuilder();
+            logMessage.append("Processing request ").append(i)
+                     .append(" for user ").append(requestData.get("userId"))
+                     .append(" with ").append(items.size()).append(" items");
+            
+            // 4. Simulate caching - some objects survive longer
             if (i % 50 == 0) {
-                createNestedObjects(3, i);
-                totalAllocated += 1024; // Estimate
+                survivors.add(requestData);
             }
+            
+            // 5. Create temporary arrays (common in data processing)
+            if (i % 10 == 0) {
+                int[] tempArray = new int[random.nextInt(500) + 100];
+                for (int k = 0; k < tempArray.length; k++) {
+                    tempArray[k] = random.nextInt();
+                }
+            }
+            
+            totalObjects++;
         }
-
+        
         // Get GC info after
         Map<String, Long> gcCountsAfter = new HashMap<>();
         Map<String, Long> gcTimesAfter = new HashMap<>();
@@ -700,96 +590,47 @@ public class RESTController {
             gcCountsAfter.put(gcBean.getName(), gcBean.getCollectionCount());
             gcTimesAfter.put(gcBean.getName(), gcBean.getCollectionTime());
         }
-
+        
         // Calculate GC differences
         Map<String, Object> gcStats = new HashMap<>();
+        long totalGcTime = 0;
+        long totalGcCount = 0;
+        
         for (var gcBean : gcBeans) {
             String name = gcBean.getName();
             long countDiff = gcCountsAfter.get(name) - gcCountsBefore.get(name);
             long timeDiff = gcTimesAfter.get(name) - gcTimesBefore.get(name);
-
-            Map<String, Object> gcInfo = new HashMap<>();
-            gcInfo.put("collections", countDiff);
-            gcInfo.put("timeMs", timeDiff);
-            gcStats.put(name, gcInfo);
+            
+            totalGcCount += countDiff;
+            totalGcTime += timeDiff;
+            
+            if (countDiff > 0 || timeDiff > 0) {
+                Map<String, Object> gcInfo = new HashMap<>();
+                gcInfo.put("collections", countDiff);
+                gcInfo.put("timeMs", timeDiff);
+                gcStats.put(name, gcInfo);
+            }
         }
-
+        
         long endTime = System.currentTimeMillis();
+        long duration = endTime - startTime;
         long memoryAfter = runtime.totalMemory() - runtime.freeMemory();
-
+        
         Map<String, Object> result = new HashMap<>();
         result.put("iterations", iterations);
-        result.put("arraySize", arraySize);
-        result.put("executionTimeMs", endTime - startTime);
-        result.put("totalAllocatedBytes", totalAllocated);
-        result.put("allocatedMB", totalAllocated / (1024 * 1024));
-        result.put("memoryUsedBeforeMB", memoryBefore / 1024 / 1024);
-        result.put("memoryUsedAfterMB", memoryAfter / 1024 / 1024);
-        result.put("longLivedObjectsCount", longLivedObjects.size());
-        result.put("includeStrings", includeStrings);
-        result.put("includeCollections", includeCollections);
-        result.put("includeLargeObjects", includeLargeObjects);
-        result.put("timestamp", System.currentTimeMillis());
-        result.put("allocationsPerSecond", (double) iterations / ((endTime - startTime) / 1000.0));
+        result.put("executionTimeMs", duration);
+        result.put("objectsCreated", totalObjects);
+        result.put("survivorObjects", survivors.size());
+        result.put("memoryUsedBeforeMB", memoryBefore / (1024 * 1024));
+        result.put("memoryUsedAfterMB", memoryAfter / (1024 * 1024));
+        result.put("memoryIncreaseMB", (memoryAfter - memoryBefore) / (1024 * 1024));
+        result.put("allocationsPerSecond", (double) totalObjects / (duration / 1000.0));
+        result.put("totalGcCollections", totalGcCount);
+        result.put("totalGcTimeMs", totalGcTime);
+        result.put("gcOverheadPercent", duration > 0 ? (double) totalGcTime / duration * 100 : 0);
         result.put("gcStats", gcStats);
-
+        result.put("timestamp", endTime);
+        
         return result;
-    }
-
-    private List<Map<String, Object>> createOrderItems(int count) {
-        List<Map<String, Object>> items = new ArrayList<>();
-        for (int i = 0; i < count; i++) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("itemId", "ITEM_" + i);
-            item.put("description", "Product description for item " + i);
-            item.put("price", Math.random() * 100);
-            item.put("quantity", (int) (Math.random() * 10) + 1);
-            items.add(item);
-        }
-        return items;
-    }
-
-    private void createNestedObjects(int depth, int seed) {
-        if (depth <= 0) return;
-
-        Map<String, Object> node = new HashMap<>();
-        node.put("level", depth);
-        node.put("data", "Node_" + seed + "_" + depth);
-        node.put("timestamp", System.currentTimeMillis());
-
-        if (depth > 1) {
-            List<Object> children = new ArrayList<>();
-            for (int i = 0; i < 3; i++) {
-                children.add(createNestedObjectHelper(depth - 1, seed * 10 + i));
-            }
-            node.put("children", children);
-        }
-    }
-
-    private Map<String, Object> createNestedObjectHelper(int depth, int seed) {
-        Map<String, Object> node = new HashMap<>();
-        node.put("level", depth);
-        node.put("data", "Node_" + seed + "_" + depth);
-
-        if (depth > 1) {
-            List<Object> children = new ArrayList<>();
-            for (int i = 0; i < 2; i++) {
-                children.add(createNestedObjectHelper(depth - 1, seed * 10 + i));
-            }
-            node.put("children", children);
-        }
-        return node;
-    }
-
-    private long estimateObjectSize(Object obj) {
-        // Rough estimation for demonstration purposes
-        if (obj instanceof Map) {
-            return ((Map<?, ?>) obj).size() * 64; // Rough estimate
-        } else if (obj instanceof List) {
-            return ((List<?>) obj).size() * 32; // Rough estimate
-        } else if (obj instanceof String) {
-            return ((String) obj).length() * 2 + 24; // UTF-16 + object overhead
-        }
-        return 32; // Default object overhead estimate
     }
 }
