@@ -561,6 +561,90 @@ public class RESTController {
 
       
 
+    @GetMapping("/zgcStressLight")
+    public Map<String, Object> zgcStressLight(@RequestParam(defaultValue = "500") int iterations, @RequestParam(defaultValue = "500") int objectSizeKB) {
+        var startTime = Instant.now();
+        var results = new TreeMap<String, Object>();
+        results.put("iterations", iterations);
+        results.put("objectSizeKB", objectSizeKB);
+        results.put("availableProcessors", Runtime.getRuntime().availableProcessors());
+
+        // Get GC info before
+        var gcBeans = ManagementFactory.getGarbageCollectorMXBeans();
+        Map<String, Long> gcCountsBefore = new HashMap<>();
+        Map<String, Long> gcTimesBefore = new HashMap<>();
+        for (var gcBean : gcBeans) {
+            gcCountsBefore.put(gcBean.getName(), gcBean.getCollectionCount());
+            gcTimesBefore.put(gcBean.getName(), gcBean.getCollectionTime());
+        }
+
+        var runtime = Runtime.getRuntime();
+        long memoryBefore = runtime.totalMemory() - runtime.freeMemory();
+
+        try {
+            // Moderate memory allocation for JMeter testing
+            var objectList = new ArrayList<byte[]>();
+            long totalAllocations = 0;
+
+            for (int iteration = 0; iteration < iterations; iteration++) {
+                // Create moderate number of objects per iteration
+                for (int i = 0; i < 5; i++) {  // 5 objects per iteration
+                    objectList.add(new byte[objectSizeKB * 1024]);
+                    totalAllocations++;
+
+                    // Cleanup at reasonable threshold
+                    if (objectList.size() > 100) {  // Moderate threshold
+                        objectList.subList(0, 50).clear();  // Remove half
+                    }
+                }
+
+                // Add some temporary allocation pressure (smaller)
+                if (iteration % 10 == 0) {
+                    var tempArray = new byte[256 * 1024]; // 256KB temporary objects
+                    @SuppressWarnings("unused") int len = tempArray.length;
+                }
+            }
+
+            results.put("totalAllocations", totalAllocations);
+            results.put("completedIterations", iterations);
+            results.put("finalListSize", objectList.size());
+
+        } catch (OutOfMemoryError e) {
+            results.put("error", "OutOfMemoryError: " + e.getMessage());
+        }
+
+        // Get GC info after
+        Map<String, Long> gcCountsAfter = new HashMap<>();
+        Map<String, Long> gcTimesAfter = new HashMap<>();
+        for (var gcBean : gcBeans) {
+            gcCountsAfter.put(gcBean.getName(), gcBean.getCollectionCount());
+            gcTimesAfter.put(gcBean.getName(), gcBean.getCollectionTime());
+        }
+
+        // Calculate GC differences
+        Map<String, Object> gcStats = new HashMap<>();
+        for (var gcBean : gcBeans) {
+            String name = gcBean.getName();
+            long countDiff = gcCountsAfter.get(name) - gcCountsBefore.get(name);
+            long timeDiff = gcTimesAfter.get(name) - gcTimesBefore.get(name);
+
+            Map<String, Object> gcInfo = new HashMap<>();
+            gcInfo.put("collections", countDiff);
+            gcInfo.put("timeMs", timeDiff);
+            gcStats.put(name, gcInfo);
+        }
+
+        var endTime = Instant.now();
+        long memoryAfter = runtime.totalMemory() - runtime.freeMemory();
+
+        results.put("gcStats", gcStats);
+        results.put("memoryUsedBeforeMB", memoryBefore / 1024 / 1024);
+        results.put("memoryUsedAfterMB", memoryAfter / 1024 / 1024);
+        results.put("actualDurationMs", Duration.between(startTime, endTime).toMillis());
+
+        return results;
+    }
+
     @GetMapping("/zgcStress")
     public Map<String, Object> zgcStress(@RequestParam(defaultValue = "5000") int iterations, @RequestParam(defaultValue = "5000") int objectSizeKB) {
         var startTime = Instant.now();
