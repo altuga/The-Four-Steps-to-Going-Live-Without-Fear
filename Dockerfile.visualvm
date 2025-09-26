@@ -1,7 +1,8 @@
-FROM eclipse-temurin:21-jdk
+FROM eclipse-temurin:24-jdk
+
 
 WORKDIR /app
-COPY target/five-steps-1.0-SNAPSHOT.jar app.jar
+COPY target/four-steps-1.0-SNAPSHOT.jar app.jar
 
 # Expose ports
 EXPOSE 8080 9999
